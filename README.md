@@ -226,6 +226,28 @@ ACP 守护进程与宿主集成测试会拆成逻辑分片，并按静态 manife
 
 看到 `ws client ready` 后，在测试话题群里 `@机器人` 发送消息。
 
+## PM2 持久化运行
+
+机器人以 pm2 常驻托管（崩溃自动重启、日志落盘 `data/pm2/`），不再依赖终端窗口。配置文件为根目录 `ecosystem.config.cjs`，内部以 `tsx` 直跑 `src/index.ts`（等价 `pnpm start:once`，不带文件监听），发版后手动重启即可。
+
+```powershell
+npm install -g pm2            # 首次：全局安装 pm2
+pnpm pm2:start                # 启动机器人（崩溃自动重启）
+pnpm pm2:status               # 查看运行状态
+pnpm pm2:logs                 # 实时查看日志
+pnpm pm2:restart              # 发版部署后重启
+pnpm pm2:stop                 # 停止
+pnpm pm2:delete               # 从 pm2 移除
+```
+
+开机自启（Windows）：pm2 不原生支持 `pm2 startup`，改为登录时恢复进程快照：
+
+1. 首次启动并确认正常后执行 `pnpm pm2:save` 保存进程快照（已在本机执行过）；
+2. 打开「任务计划程序」→ 创建任务：触发器选择「登录时」，操作选择「启动程序」，程序填 `pm2`（或 `C:\Program Files\nodejs\pm2.cmd`），参数填 `resurrect`；
+3. 登录后机器人自动恢复，`pnpm pm2:status` 应为 `online`。
+
+> 从手动运行切换到 pm2 时，先停掉旧的手动进程，避免 `EADDRINUSE`（端口 3101）冲突。
+
 ## CLI 引擎配置
 
 先确认本机终端可以找到两个 CLI：

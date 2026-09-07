@@ -1222,6 +1222,7 @@ export class TasksService extends Service {
       timeoutMs: cliExecutionTimeoutMs(adapter.id),
       env,
       onEvent,
+      botId: session.botId,
     });
   }
 

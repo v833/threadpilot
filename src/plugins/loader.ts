@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { parse as parseYaml } from "yaml";
 
+import * as agentAdminPlugin from "./agent-admin.js";
 import * as applicationToolsPlugin from "./application-tools.js";
 import * as authPlugin from "./auth.js";
 import * as bitableBoardPlugin from "./bitable-board.js";
@@ -61,6 +62,7 @@ import * as workspacesPlugin from "./workspaces.js";
 /** 插件名 → 插件对象；新增插件时在这里登记名字，供 cordis.yml 引用。 */
 const pluginRegistry: Record<string, Plugin> = {
   config: configPlugin,
+  "agent-admin": agentAdminPlugin,
   prompts: promptsPlugin,
   sessions: sessionsPlugin,
   cli: cliPlugin,

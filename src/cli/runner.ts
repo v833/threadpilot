@@ -36,6 +36,8 @@ export interface RunCliOptions {
   env?: Record<string, string>;
   /** ACP 模式下的常驻进程；由调用方持有并负责生命周期与回收。 */
   acpDaemon?: AcpDaemon;
+  /** 本轮任务归属的 bot id；cli 服务据此注入每 bot 的引擎模型环境并登记常驻进程。 */
+  botId?: string;
 }
 
 /** 解析一轮 CLI 的可选执行时限；引擎专用变量优先于 CLI_TIMEOUT_MS。 */

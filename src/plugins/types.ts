@@ -26,6 +26,7 @@ import type {
   IncomingMessage,
 } from "../im/lark.js";
 
+import type { AgentAdminService } from "./agent-admin.js";
 import type { ApplicationToolsService } from "./application-tools.js";
 import type { AuthService } from "./auth.js";
 import type { CardsService } from "./cards.js";
@@ -53,6 +54,8 @@ declare module "cordis" {
   interface Context {
     /** 机器人注册表：加载 config/bots.json 并解析环境变量凭证。 */
     config: ConfigService;
+    /** Agent 管理覆盖层：每 agent 引擎模型环境注入与按 bot 重启常驻引擎；管理页面后台。 */
+    agentAdmin: AgentAdminService;
     /** 提示词管理服务：模板注册、分层覆盖与任务流水线组装。 */
     prompts: PromptsService;
     /** 团队注册表与团队上下文扩展；移除 team 插件即可下线团队能力。 */

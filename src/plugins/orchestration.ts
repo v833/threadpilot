@@ -439,6 +439,7 @@ export class OrchestrationService extends Service {
       timeoutMs: DECOMPOSE_TIMEOUT_MS,
       env: botCliEnvironment(botConfig),
       onEvent: () => {},
+      botId: botConfig.id,
     });
     return parseSubTaskSpecs(result.answer);
   }

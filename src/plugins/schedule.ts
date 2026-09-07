@@ -113,6 +113,7 @@ export async function apply(ctx: Context, config: Config = {}) {
         timeoutMs:
           cliExecutionTimeoutMs(adapter.id) ?? DEFAULT_SCHEDULE_RUN_TIMEOUT_MS,
         env,
+        botId: botConfig.id,
       });
       if (result.sessionId) {
         cliSessions.set(task.id, result.sessionId);

@@ -10,6 +10,11 @@ plugins:
   - name: team
   - name: sessions
   - name: cli
+  # Agent 管理页面:查看/配置每 agent 的 codex/claude 引擎模型(baseUrl/apiKey/model/wireApi)
+  # 与工作目录覆盖,保存即热更新(重启受影响 agent 的常驻引擎;headless 下次任务自动生效)。
+  # 配置存 config/engines.json(明文密钥:已 gitignore,服务器上需 chmod 600);
+  # 环境变量 ADMIN_API_PORT(缺省 3103)/ADMIN_API_TOKEN(必配,管理接口访问令牌)。
+  - name: agent-admin
   - name: application-tools
   - name: engines/claude
   - name: engines/codex

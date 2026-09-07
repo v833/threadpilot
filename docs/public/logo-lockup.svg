@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 360" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadPilot</title>
+  <desc id="desc">ThreadPilot symbol and wordmark.</desc>
+  <style>
+    .wordmark { fill: #0B1220; }
+    .tagline { fill: #526175; }
+    @media (prefers-color-scheme: dark) {
+      .wordmark { fill: #F4F7F5; }
+      .tagline { fill: #AAB6C5; }
+    }
+  </style>
+  <rect x="24" y="24" width="312" height="312" rx="76" fill="#0B1220"/>
+  <path d="M80 113H184M128 88V272" fill="none" stroke="#F4F7F5" stroke-width="25" stroke-linecap="round"/>
+  <path d="M128 113H191C235 113 268 138 268 169S235 225 191 225H164"
+        fill="none" stroke="#55D6D0" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="113" r="17" fill="#FF6B5F"/>
+  <circle cx="128" cy="113" r="6" fill="#0B1220"/>
+
+  <text class="wordmark" x="402" y="218" font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="130" font-weight="680" letter-spacing="0">ThreadPilot</text>
+  <rect x="407" y="256" width="72" height="8" rx="4" fill="#FF6B5F"/>
+  <text class="tagline" x="504" y="270" font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="30" font-weight="560" letter-spacing="0">ONE THREAD. ONE TEAM.</text>
+</svg>

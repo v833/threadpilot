@@ -6,7 +6,7 @@ hero:
   text: "在飞书话题里，指挥你的 AI 编程团队"
   tagline: "常驻后台连接飞书长连接，为每个话题拉起独立 CLI（Codex / Claude Code / DimAgent / Antigravity），流式卡片实时回传，手机电脑多端同步。"
   image:
-    src: /logo.png
+    src: /logo.svg
     alt: ThreadPilot Logo
   actions:
     - theme: brand

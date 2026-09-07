@@ -4,10 +4,10 @@ export default defineConfig({
   title: "ThreadPilot",
   description: "在飞书话题里，指挥你的 AI 编程团队",
   head: [
-    ['link', { rel: 'icon', href: '/logo.png' }]
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
   ],
   themeConfig: {
-    logo: '/logo.png',
+    logo: '/logo.svg',
     siteTitle: 'ThreadPilot',
     nav: [
       { text: '首页', link: '/' },

@@ -1,5 +1,5 @@
 /**
- * 应用工具探针：不经过飞书，直接驱动四类 CLI 调用
+ * 应用工具探针：不经过飞书，直接驱动 Claude/Codex/DimAgent/agy/Grok 调用
  * request_clarification，验证 MCP 工具链、Adapter 解析与 Schema 校验。
  */
 import { resolve } from "node:path";
@@ -8,6 +8,7 @@ import { AgyAdapter } from "./cli/agy-adapter.js";
 import { ClaudeAdapter } from "./cli/claude-adapter.js";
 import { CodexAdapter } from "./cli/codex-adapter.js";
 import { DimagentAdapter } from "./cli/dimagent-adapter.js";
+import { GrokAdapter } from "./cli/grok-adapter.js";
 import { getCliAdapter, registerCliAdapter } from "./cli/registry.js";
 import { runCli } from "./cli/runner.js";
 import type { CliId } from "./cli/types.js";
@@ -15,8 +16,14 @@ import { findClarificationRequest } from "./core/clarification.js";
 
 const cliId = process.argv[2] as CliId | undefined;
 const workspace = process.argv[3] ?? process.cwd();
-if (cliId !== "claude" && cliId !== "codex" && cliId !== "dimagent" && cliId !== "agy") {
-  console.error("用法：pnpm probe:tool <claude|codex|dimagent|agy> [工作目录]");
+if (
+  cliId !== "claude" &&
+  cliId !== "codex" &&
+  cliId !== "dimagent" &&
+  cliId !== "agy" &&
+  cliId !== "grok"
+) {
+  console.error("用法：pnpm probe:tool <claude|codex|dimagent|agy|grok> [工作目录]");
   process.exit(1);
 }
 
@@ -27,6 +34,7 @@ registerCliAdapter(new ClaudeAdapter(() => applicationTools));
 registerCliAdapter(new CodexAdapter(() => applicationTools));
 registerCliAdapter(new DimagentAdapter(() => applicationTools));
 registerCliAdapter(new AgyAdapter(() => applicationTools));
+registerCliAdapter(new GrokAdapter(() => applicationTools));
 
 const adapter = getCliAdapter(cliId);
 const result = await runCli({

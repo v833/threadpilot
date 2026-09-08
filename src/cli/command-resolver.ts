@@ -3,6 +3,7 @@
  * 直接定位 Node 入口或原生 exe，从而继续保持 spawn(shell=false)。
  */
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 
 export interface ResolvedCliCommand {
@@ -76,6 +77,17 @@ function pathDirectories(): string[] {
     .filter(Boolean);
 }
 
+/** Grok 安装器把二进制放在 GROK_HOME/bin 或 ~/.grok/bin，不一定在当前进程 PATH。 */
+function grokHomeBinary(): string | undefined {
+  const home = process.env.GROK_HOME?.trim() || join(homedir(), ".grok");
+  const names = process.platform === "win32" ? ["grok.exe", "grok"] : ["grok"];
+  for (const name of names) {
+    const candidate = join(home, "bin", name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 /** 解析已安装 CLI 的可执行入口，非 Windows 平台直接交给 PATH。 */
 export function resolveCliCommand(
   command: string,
@@ -110,6 +122,12 @@ export function resolveCliCommand(
     if (existsSync(executable)) {
       return { command: executable, argsPrefix: [] };
     }
+  }
+
+  // Grok 安装器写入用户目录，当前进程 PATH 可能还没有 ~/.grok/bin。
+  if (command === "grok") {
+    const homeBinary = grokHomeBinary();
+    if (homeBinary) return { command: homeBinary, argsPrefix: [] };
   }
 
   // 明确使用 .exe，避免 Node 命中 npm 的无扩展名 sh 脚本后返回 EPERM。

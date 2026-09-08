@@ -5,7 +5,7 @@
 import type { ApplicationToolServer } from './app-tools.js'
 
 /** 引擎标识；内置引擎保持字面量提示，同时允许插件注册任意扩展 id（如 ACP 引擎）。 */
-export type CliId = 'codex' | 'claude' | 'dimagent' | 'agy' | (string & {})
+export type CliId = 'codex' | 'claude' | 'dimagent' | 'agy' | 'grok' | (string & {})
 
 /** DimAgent 的接入协议；其他引擎目前只支持 headless。 */
 export type CliAccessMode = 'headless' | 'acp'

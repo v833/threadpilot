@@ -30,7 +30,7 @@ const DOC_RE = /^(?:@.+?\s+)?\/doc(?:\s+([\s\S]+?))?\s*$/;
 const METRICS_RE = /^(?:@.+?\s+)?\/metrics(?:\s+([\s\S]+?))?\s*$/;
 const BOARD_RE = /^(?:@.+?\s+)?\/board(?:\s+([\s\S]+?))?\s*$/;
 /** 未显式注入注册表时的回退引擎集合（router 会传入真实注册表，保持两者同步）。 */
-const DEFAULT_CLI_IDS = ["codex", "claude", "dimagent", "agy"] as const;
+const DEFAULT_CLI_IDS = ["codex", "claude", "dimagent", "agy", "grok"] as const;
 // /schedule 后的自然语言不硬拆，整段交给模型用 schedule_manage 理解并创建。
 const SCHEDULE_RE = /^(?:@.+?\s+)?\/schedule(?:\s+([\s\S]+?))?\s*$/;
 const SCHEDULES_RE = /^(?:@.+?\s+)?\/schedules\s*$/;

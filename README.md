@@ -6,7 +6,7 @@
 
 > 在飞书话题里，指挥你的 AI 编程团队。
 
-当前阶段支持从飞书话题真实调度 Codex、Claude Code、DimAgent 或 agy，并用同一张卡片实时展示当前动作、工具轨迹、耗时和上下文；成功后答案回到卡片正文，任务也可由发起人随时停止。同一话题会续接 CLI 上下文，会话和恢复指针都可跨进程重启恢复。一个进程可以按注册表启动多台职责不同的 bot，每台 bot 使用独立凭证、默认引擎、接入模式和角色说明，同时保留 `@` 提及、富文本代码以及图片和文件下载能力。
+当前阶段支持从飞书话题真实调度 Codex、Claude Code、DimAgent、agy 或 Grok，并用同一张卡片实时展示当前动作、工具轨迹、耗时和上下文；成功后答案回到卡片正文，任务也可由发起人随时停止。同一话题会续接 CLI 上下文，会话和恢复指针都可跨进程重启恢复。一个进程可以按注册表启动多台职责不同的 bot，每台 bot 使用独立凭证、默认引擎、接入模式和角色说明，同时保留 `@` 提及、富文本代码以及图片和文件下载能力。
 
 ## Cordis 插件架构（一切皆为插件）
 
@@ -29,6 +29,8 @@ plugins:
   - name: engines/claude
   - name: engines/codex
   - name: engines/dimagent
+  - name: engines/agy
+  - name: engines/grok
   - name: lark
   - name: cards
   - name: commands

@@ -20,6 +20,7 @@ plugins:
   - name: engines/codex
   - name: engines/dimagent
   - name: engines/agy
+  - name: engines/grok
   # 标准 ACP 接入：engines 列表可声明任意提供 ACP server 的 CLI。
   # 移除本插件或 engines 列表即可整体下线 ACP 接入能力。
   - name: engines/acp
@@ -44,6 +45,14 @@ plugins:
           displayName: Claude (ACP)
           resumeMethod: load
           acpMcpTransports: [http, sse]
+        # Grok ACP：官方 `grok agent stdio`。--always-approve 避免权限卡；
+        # --no-leader 让 ThreadPilot 持有独立进程，不复用本机交互式 leader。
+        - id: grok
+          command: grok
+          args: [agent, --always-approve, --no-leader, stdio]
+          displayName: Grok
+          resumeMethod: load
+          acpMcpTransports: [stdio, http, sse]
   - name: lark
   - name: cards
   - name: commands

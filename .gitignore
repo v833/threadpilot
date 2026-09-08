@@ -12,4 +12,5 @@ docs/.vitepress/cache/
 .scratch/
 .mcp.json
 .agents/mcp_config.json
+.grok/
 scope-apply-qrcode.png

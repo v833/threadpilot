@@ -106,6 +106,29 @@ test("ACP daemon 环境剔除动态 HTTP 头变量并保留进程配置", () => 
   );
 });
 
+test("AcpAdapter 按配置登记 Grok ACP 启动参数", () => {
+  const adapter = new AcpAdapter({
+    id: "grok",
+    command: "grok",
+    args: ["agent", "--always-approve", "--no-leader", "stdio"],
+    displayName: "Grok",
+    resumeMethod: "load",
+    acpMcpTransports: ["stdio", "http", "sse"],
+  });
+
+  assert.equal(adapter.id, "grok");
+  assert.equal(adapter.accessMode, "acp");
+  assert.equal(adapter.displayName, "Grok");
+  assert.deepEqual(adapter.buildArgs("提示词不进启动参数"), [
+    "agent",
+    "--always-approve",
+    "--no-leader",
+    "stdio",
+  ]);
+  assert.deepEqual(adapter.getAcpResumeMethod(), "load");
+  assert.deepEqual(adapter.getAcpMcpTransports(), ["stdio", "http", "sse"]);
+});
+
 test("AcpAdapter 缺省参数与展示名自动回退", () => {
   const adapter = new AcpAdapter({ id: "codex-acp", command: "codex" });
 

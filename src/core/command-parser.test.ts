@@ -158,6 +158,10 @@ test("解析新话题显式指定的 CLI 与真实任务正文", () => {
     cliId: "agy",
     prompt: "检查项目",
   });
+  assert.deepEqual(parseCliRequest("/grok 检查项目"), {
+    cliId: "grok",
+    prompt: "检查项目",
+  });
 });
 
 test("引擎请求按注册表注入的 CLI ID 动态解析，未注册引擎不误识别", () => {

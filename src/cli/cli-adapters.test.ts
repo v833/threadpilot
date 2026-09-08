@@ -149,6 +149,14 @@ test("Windows 下解析到可直接 spawn 的真实 CLI 入口", () => {
   assert.equal(claude.command.toLowerCase().endsWith(".cmd"), false);
 });
 
+test("Windows 下 Grok 可解析到 ~/.grok/bin 的真实 exe", () => {
+  if (process.platform !== "win32") return;
+  const grok = resolveCliCommand("grok");
+  if (!existsSync(grok.command)) return;
+  assert.equal(grok.command.toLowerCase().endsWith(".cmd"), false);
+  assert.match(grok.command.toLowerCase(), /grok\.exe$/);
+});
+
 test("Claude Code 一行解析上下文和全部工具调用", () => {
   const adapter = new ClaudeAdapter();
 

@@ -156,6 +156,7 @@ plugins:
   - name: engines/codex
   - name: engines/dimagent
   - name: engines/agy
+  - name: engines/grok
 
   # 平台与通信
   - name: lark

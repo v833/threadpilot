@@ -41,6 +41,7 @@ import * as claudeEngine from "./engines/claude.js";
 import * as codexEngine from "./engines/codex.js";
 import * as dimagentEngine from "./engines/dimagent.js";
 import * as agyEngine from "./engines/agy.js";
+import * as grokEngine from "./engines/grok.js";
 import * as acpEngine from "./engines/acp.js";
 import * as larkPlugin from "./lark.js";
 import * as observabilityPlugin from "./observability.js";
@@ -74,6 +75,7 @@ const pluginRegistry: Record<string, Plugin> = {
   "engines/codex": codexEngine,
   "engines/dimagent": dimagentEngine,
   "engines/agy": agyEngine,
+  "engines/grok": grokEngine,
   "engines/acp": acpEngine,
   lark: larkPlugin,
   cards: cardsPlugin,

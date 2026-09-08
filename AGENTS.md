@@ -26,8 +26,8 @@
 - `pnpm start:once`：不启用 watch，直接启动飞书机器人
 - `pnpm build`：执行 TypeScript 编译检查并输出到 `dist/`
 - `pnpm test`：以独立进程并行运行完整测试并逐文件校验摘要；`test:fast`、`test:cli`、`test:plugins` 按模块验证，`test:serial` 用于顺序污染诊断
-- `pnpm probe:cli`：从标准输入读取 Codex/Claude/DimAgent JSONL 并输出时间线
-- `pnpm probe:tool <claude|codex|dimagent|agy> [工作目录]`：不经飞书直接驱动 CLI 调用 `request_clarification`，验证 MCP 工具链与 Schema 校验
+- `pnpm probe:cli`：从标准输入读取 Codex/Claude/DimAgent/Grok JSONL 并输出时间线
+- `pnpm probe:tool <claude|codex|dimagent|agy|grok> [工作目录]`：不经飞书直接驱动 CLI 调用 `request_clarification`，验证 MCP 工具链与 Schema 校验
 
 ## CLI Headless 调试
 
@@ -43,6 +43,13 @@ Claude Code：
 ```powershell
 claude -p "1加1等于几？只回答数字本身" --output-format stream-json --verbose | pnpm probe:cli
 claude --resume <session_id> -p "再加1呢？只回答数字本身" --output-format stream-json --verbose | pnpm probe:cli
+```
+
+Grok：
+
+```powershell
+grok -p "1加1等于几？只回答数字本身" --output-format streaming-messages-json --always-approve | pnpm probe:cli
+grok --resume <session_id> -p "再加1呢？只回答数字本身" --output-format streaming-messages-json --always-approve | pnpm probe:cli
 ```
 
 ## 模块地图
@@ -81,7 +88,7 @@ claude --resume <session_id> -p "再加1呢？只回答数字本身" --output-fo
 - `src/plugins/orchestration.ts`：orchestration 服务——把大任务拆解成子任务并行派发（topic/same-topic）、维护有界运行表、监听 task/result|failed 更新子任务状态，并提供失败子任务一键重试（retrySubTask，鉴权/去重/次数上限）
 - `src/plugins/orchestration/live-panel.ts`：实时面板子插件——订阅 orchestration/update 挂起并节流刷新面板卡片，终态定格、淘汰清理
 - `src/plugins/orchestration/actions.ts`：面板动作子插件（可选）——启动时置位重试能力，认领 retry_subtask 卡片动作并映射 toast；移除即无重试按钮
-- `src/plugins/engines/*.ts`：引擎插件（claude/codex/dimagent/agy/acp），通过 ctx.cli.register() 登记执行适配器；其中 `engines/acp` 是标准 ACP 接入——从 cordis.yml 的 engines 列表注册任意提供 ACP server 的 CLI
+- `src/plugins/engines/*.ts`：引擎插件（claude/codex/dimagent/agy/grok/acp），通过 ctx.cli.register() 登记执行适配器；其中 `engines/acp` 是标准 ACP 接入——从 cordis.yml 的 engines 列表注册任意提供 ACP server 的 CLI；Grok 的 ACP 条目为 `grok agent --always-approve --no-leader stdio`
 - `src/plugins/commands/*.ts`：斜杠命令插件（help/new/resume/compact/doc/status/team/cd/close/schedule/schedules），通过 ctx.commands.register() 登记
 - `src/plugins/commands/schedule.ts`：/schedule 命令插件——自然语言需求交给当前 bot 调用 schedule_manage，pause/resume/delete/run 管理动作按调用者隔离后直接执行
 - `src/plugins/commands/schedules.ts`：/schedules 命令插件——列出当前聊天中由当前用户创建的计划并回复卡片
@@ -172,6 +179,9 @@ claude --resume <session_id> -p "再加1呢？只回答数字本身" --output-fo
 - `src/cli/agy-mcp-config.ts`：agy 工作区及 DimAgent 项目 MCP 配置的插件 Server 合并与原子写入
 - `src/cli/agy-adapter.test.ts`：agy 参数构造、MCP 工具事件、事件翻译、compact 拒绝与失效会话识别测试
 - `src/cli/agy-mcp-config.test.ts`、`src/cli/dim-mcp-config.test.ts`：headless MCP 配置原子合并、幂等更新和格式边界测试
+- `src/cli/grok-adapter.ts`：Grok CLI headless 适配器——`grok -p` 参数、streaming-messages-json 事件翻译、use_tool/MCP 展开名识别、设备码登录与原生会话列表；无原生 compact 协议故 /compact 明确拒绝
+- `src/cli/grok-mcp-config.ts`：Grok 工作区 `.grok/config.toml` 的 `[mcp_servers.*]` 增量合并
+- `src/cli/grok-adapter.test.ts`、`src/cli/grok-mcp-config.test.ts`：Grok 参数、事件、应用工具、会话列表与 MCP 配置测试
 - `src/cli/native-sessions.ts`：原生会话入口——按 adapter 声明的 listNativeSessions 分发，未声明即不支持；具体协议实现归属各引擎适配器
 - `src/cli/native-sessions.test.ts`：原生会话目录过滤、标题回退和排序测试
 - `src/cli/native-compact.ts`：驱动 Claude/Codex 原生上下文整理协议
@@ -182,7 +192,7 @@ claude --resume <session_id> -p "再加1呢？只回答数字本身" --output-fo
 - `src/cli/cli-adapters.test.ts`：双 CLI 参数、多事件和协议解析测试
 - `src/cli-events.ts`：Codex/Claude/DimAgent 事件解析
 - `src/probe-cli.ts`：JSONL 标准输入时间线探针
-- `src/probe-app-tool.ts`：应用工具探针——不经飞书驱动 Claude/Codex/agy 调用澄清工具并校验结果
+- `src/probe-app-tool.ts`：应用工具探针——不经飞书驱动 Claude/Codex/agy/Grok 调用澄清工具并校验结果
 - `scripts/test-runner.mjs`、`scripts/test-runner.test.mjs`：跨平台测试调度器及自检——自动发现测试、实测长文件优先、超大测试逻辑分片、逐文件隔离与静态 manifest 完整性校验
 - `src/cli-events.test.ts`：事件解析器测试
 - `src/mcp/clarification-server.ts`：本地 stdio MCP Server——向 Claude Code、Codex、DimAgent headless 与 agy 提供 `request_clarification` 工具

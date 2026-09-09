@@ -47,6 +47,16 @@ export interface EngineOverride {
   wireApi?: "responses" | "chat";
 }
 
+/** 保存脱敏表单时，未提交新密钥则沿用已有密钥，避免空密码框误清除凭证。 */
+export function preserveEngineApiKey(
+  existing: EngineOverride | undefined,
+  submitted: EngineOverride,
+): EngineOverride {
+  return submitted.apiKey || !existing?.apiKey
+    ? submitted
+    : { ...submitted, apiKey: existing.apiKey };
+}
+
 export interface AgentOverride {
   botId: string;
   workspace?: string;

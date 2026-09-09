@@ -8,8 +8,22 @@ import {
   AgentAdminStore,
   codexKeyEnv,
   fetchProviderModels,
+  preserveEngineApiKey,
   testProviderConnectivity,
 } from "./agent-admin.js";
+
+test("保存引擎时空 API Key 保留旧值，非空新值正常替换", () => {
+  const existing = { apiKey: "sk-old", model: "old-model" };
+
+  assert.deepEqual(
+    preserveEngineApiKey(existing, { model: "new-model" }),
+    { apiKey: "sk-old", model: "new-model" },
+  );
+  assert.deepEqual(
+    preserveEngineApiKey(existing, { apiKey: "sk-new", model: "new-model" }),
+    { apiKey: "sk-new", model: "new-model" },
+  );
+});
 
 async function makeStore() {
   const directory = await mkdtemp(join(tmpdir(), "threadpilot-admin-"));

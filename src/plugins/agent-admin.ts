@@ -15,6 +15,7 @@ import {
   AgentAdminStore,
   EngineOverrideSchema,
   fetchProviderModels,
+  preserveEngineApiKey,
   testProviderConnectivity,
   type AgentOverride,
   type EngineOverride,
@@ -334,7 +335,12 @@ function buildHandlers(
           } catch (error) {
             return { ok: false, status: 400, error: (error as Error).message };
           }
-          if (normalized) engines[engineId] = normalized;
+          if (normalized) {
+            engines[engineId] = preserveEngineApiKey(
+              store.engineOverride(botId, engineId),
+              normalized,
+            );
+          }
         }
       }
 

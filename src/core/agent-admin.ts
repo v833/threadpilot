@@ -58,6 +58,233 @@ export interface AgentAdminFile {
   agents: AgentOverride[];
 }
 
+export interface ProviderModelQuery {
+  engineId: string;
+  baseUrl: string;
+  apiKey?: string;
+}
+
+export interface ProviderConnectivityQuery extends ProviderModelQuery {
+  model: string;
+  wireApi?: "responses" | "chat";
+}
+
+export interface ProviderConnectivityResult {
+  latencyMs: number;
+}
+
+const MODEL_RESPONSE_LIMIT = 2 * 1024 * 1024;
+
+/**
+ * 从供应商兼容接口读取模型 ID。管理员可配置任意供应商地址，因此只约束为
+ * HTTP(S)，并通过超时与响应大小限制避免管理请求长期占用主进程。
+ */
+export async function fetchProviderModels(
+  query: ProviderModelQuery,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string[]> {
+  const endpoints = modelEndpointCandidates(query.baseUrl);
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (query.apiKey) {
+    headers.authorization = `Bearer ${query.apiKey}`;
+    if (query.engineId === "claude") {
+      headers["x-api-key"] = query.apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    }
+  }
+
+  const errors: string[] = [];
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        errors.push(`${endpoint.pathname}: HTTP ${response.status}`);
+        continue;
+      }
+      const declaredSize = Number(response.headers.get("content-length") ?? 0);
+      if (declaredSize > MODEL_RESPONSE_LIMIT) {
+        errors.push(`${endpoint.pathname}: 响应超过 2MB`);
+        continue;
+      }
+      const text = await response.text();
+      if (Buffer.byteLength(text, "utf8") > MODEL_RESPONSE_LIMIT) {
+        errors.push(`${endpoint.pathname}: 响应超过 2MB`);
+        continue;
+      }
+      const models = extractModelIds(JSON.parse(text));
+      if (models.length > 0) return models;
+      errors.push(`${endpoint.pathname}: 响应中没有模型`);
+    } catch (error) {
+      errors.push(`${endpoint.pathname}: ${(error as Error).message}`);
+    }
+  }
+  throw new Error(`获取模型列表失败: ${errors.join("; ")}`);
+}
+
+/** 发起一次最小真实推理请求，确认供应商、凭证与指定模型可以共同工作。 */
+export async function testProviderConnectivity(
+  query: ProviderConnectivityQuery,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ProviderConnectivityResult> {
+  const request = connectivityRequest(query);
+  const startedAt = Date.now();
+  let response: Response;
+  try {
+    response = await fetchImpl(request.endpoint, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) {
+    throw new Error(`模型连接失败: ${(error as Error).message}`);
+  }
+  const text = await readLimitedResponse(response);
+  if (!response.ok) {
+    throw new Error(`模型请求失败: HTTP ${response.status}${providerError(text)}`);
+  }
+  try {
+    JSON.parse(text);
+  } catch {
+    throw new Error("模型请求失败: 供应商返回的不是 JSON");
+  }
+  return { latencyMs: Date.now() - startedAt };
+}
+
+function connectivityRequest(query: ProviderConnectivityQuery): {
+  endpoint: URL;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+} {
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+  if (query.engineId === "claude") {
+    if (query.apiKey) {
+      headers["x-api-key"] = query.apiKey;
+      headers.authorization = `Bearer ${query.apiKey}`;
+    }
+    headers["anthropic-version"] = "2023-06-01";
+    return {
+      endpoint: providerEndpoint(query.baseUrl, "messages"),
+      headers,
+      body: {
+        model: query.model,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "Reply OK" }],
+      },
+    };
+  }
+  if (query.apiKey) headers.authorization = `Bearer ${query.apiKey}`;
+  if (query.wireApi === "chat") {
+    return {
+      endpoint: providerEndpoint(query.baseUrl, "chat/completions"),
+      headers,
+      body: {
+        model: query.model,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "Reply OK" }],
+      },
+    };
+  }
+  return {
+    endpoint: providerEndpoint(query.baseUrl, "responses"),
+    headers,
+    body: { model: query.model, max_output_tokens: 1, input: "Reply OK" },
+  };
+}
+
+async function readLimitedResponse(response: Response): Promise<string> {
+  const declaredSize = Number(response.headers.get("content-length") ?? 0);
+  if (declaredSize > MODEL_RESPONSE_LIMIT) throw new Error("供应商响应超过 2MB");
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > MODEL_RESPONSE_LIMIT) {
+    throw new Error("供应商响应超过 2MB");
+  }
+  return text;
+}
+
+function providerError(text: string): string {
+  try {
+    const payload = JSON.parse(text) as Record<string, unknown>;
+    const nested = payload.error && typeof payload.error === "object"
+      ? payload.error as Record<string, unknown>
+      : undefined;
+    const message = nested?.message ?? payload.message ?? payload.error;
+    return typeof message === "string" && message.trim()
+      ? ` - ${message.trim().slice(0, 300)}`
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function modelEndpointCandidates(baseUrl: string): URL[] {
+  const base = parseProviderBase(baseUrl);
+  const path = base.pathname.replace(/\/+$/, "");
+  const paths = path.endsWith("/models")
+    ? [path]
+    : path.endsWith("/v1")
+      ? [`${path}/models`]
+      : [`${path}/v1/models`, `${path}/models`];
+  return paths.map((pathname) => new URL(pathname || "/models", base));
+}
+
+function providerEndpoint(baseUrl: string, resource: string): URL {
+  const base = parseProviderBase(baseUrl);
+  const path = base.pathname.replace(/\/+$/, "");
+  const prefix = path.endsWith("/v1") ? path : `${path}/v1`;
+  return new URL(`${prefix}/${resource}`, base);
+}
+
+function parseProviderBase(baseUrl: string): URL {
+  let base: URL;
+  try {
+    base = new URL(baseUrl.trim());
+  } catch {
+    throw new Error("Base URL 不合法");
+  }
+  if (!["http:", "https:"].includes(base.protocol)) {
+    throw new Error("Base URL 仅支持 HTTP(S)");
+  }
+  if (base.username || base.password) {
+    throw new Error("Base URL 不能包含用户名或密码");
+  }
+  base.search = "";
+  base.hash = "";
+  return base;
+}
+
+function extractModelIds(payload: unknown): string[] {
+  const record = payload && typeof payload === "object"
+    ? payload as Record<string, unknown>
+    : undefined;
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(record?.data)
+      ? record.data
+      : Array.isArray(record?.models)
+        ? record.models
+        : [];
+  const ids: string[] = [];
+  for (const item of source) {
+    const value = typeof item === "string"
+      ? item
+      : item && typeof item === "object"
+        ? ["id", "model", "modelId"]
+            .map((key) => (item as Record<string, unknown>)[key])
+            .find((candidate) => typeof candidate === "string")
+        : undefined;
+    if (typeof value === "string" && value.trim()) ids.push(value.trim());
+  }
+  return [...new Set(ids)].sort((left, right) => left.localeCompare(right));
+}
+
 export type LoadResult =
   | { ok: true; agents: AgentOverride[] }
   | { ok: false; error: string };

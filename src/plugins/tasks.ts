@@ -440,6 +440,17 @@ export class TasksService extends Service {
       return await this.runTask(input);
     } catch (error) {
       console.error("[任务] 启动失败:", (error as Error).message);
+      if (this.activeRuns.has(input.session.id)) {
+        this.activeRuns.delete(input.session.id);
+      }
+      try {
+        await this.markSessionIdle(input.session.id);
+      } catch (cleanupError) {
+        console.error(
+          "[会话] 启动失败后恢复空闲状态失败:",
+          (cleanupError as Error).message,
+        );
+      }
       return false;
     }
   }

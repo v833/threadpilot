@@ -14,6 +14,8 @@ import { join, resolve } from "node:path";
 import {
   AgentAdminStore,
   EngineOverrideSchema,
+  fetchProviderModels,
+  testProviderConnectivity,
   type AgentOverride,
   type EngineOverride,
 } from "../core/agent-admin.js";
@@ -24,6 +26,8 @@ import {
   type AgentAdminApiHandlers,
   type AgentAdminRestartResult,
   type AgentAdminResult,
+  type AgentAdminModelsResult,
+  type AgentAdminConnectivityResult,
 } from "../core/agent-admin-api.js";
 import { resolveWorkspacePath } from "../core/workspace.js";
 import type { BotConfig } from "../core/bot-registry.js";
@@ -34,7 +38,7 @@ export class AgentAdminService extends Service {
     ctx: Context,
     private readonly store: AgentAdminStore,
   ) {
-    super(ctx, "agent-admin");
+    super(ctx, "agentAdmin");
   }
 
   /** 某 bot 某引擎的子进程模型环境；无覆盖返回 undefined。 */
@@ -239,6 +243,74 @@ function buildHandlers(
     async getAgent(botId) {
       const bot = findBot(botId);
       return bot ? viewOf(bot, store, engineIds()) : undefined;
+    },
+
+    async listModels(botId, engineId, body): Promise<AgentAdminModelsResult> {
+      if (!findBot(botId)) {
+        return { ok: false, status: 404, error: `agent 不存在: ${botId}` };
+      }
+      if (!new Set(engineIds()).has(engineId)) {
+        return { ok: false, status: 400, error: `未注册的引擎: ${engineId}` };
+      }
+      const saved = store.engineOverride(botId, engineId);
+      const baseUrl = typeof body.baseUrl === "string" && body.baseUrl.trim()
+        ? body.baseUrl.trim()
+        : saved?.baseUrl;
+      const apiKey = typeof body.apiKey === "string" && body.apiKey.trim()
+        ? body.apiKey.trim()
+        : saved?.apiKey;
+      if (!baseUrl) {
+        return { ok: false, status: 400, error: "请先填写 Base URL" };
+      }
+      try {
+        return {
+          ok: true,
+          models: await fetchProviderModels({ engineId, baseUrl, apiKey }),
+        };
+      } catch (error) {
+        return { ok: false, status: 502, error: (error as Error).message };
+      }
+    },
+
+    async testConnectivity(
+      botId,
+      engineId,
+      body,
+    ): Promise<AgentAdminConnectivityResult> {
+      if (!findBot(botId)) {
+        return { ok: false, status: 404, error: `agent 不存在: ${botId}` };
+      }
+      if (!new Set(engineIds()).has(engineId)) {
+        return { ok: false, status: 400, error: `未注册的引擎: ${engineId}` };
+      }
+      const saved = store.engineOverride(botId, engineId);
+      const value = (input: unknown, fallback?: string): string | undefined =>
+        typeof input === "string" && input.trim() ? input.trim() : fallback;
+      const baseUrl = value(body.baseUrl, saved?.baseUrl);
+      const apiKey = value(body.apiKey, saved?.apiKey);
+      const model = value(body.model, saved?.model);
+      const wireApi = value(body.wireApi, saved?.wireApi);
+      if (!baseUrl) {
+        return { ok: false, status: 400, error: "请先填写 Base URL" };
+      }
+      if (!model) {
+        return { ok: false, status: 400, error: "请先选择或填写 Model" };
+      }
+      if (wireApi !== undefined && wireApi !== "responses" && wireApi !== "chat") {
+        return { ok: false, status: 400, error: "Wire API 不合法" };
+      }
+      try {
+        const result = await testProviderConnectivity({
+          engineId,
+          baseUrl,
+          apiKey,
+          model,
+          wireApi,
+        });
+        return { ok: true, latencyMs: result.latencyMs };
+      } catch (error) {
+        return { ok: false, status: 502, error: (error as Error).message };
+      }
     },
 
     async updateAgent(botId, body): Promise<AgentAdminResult> {

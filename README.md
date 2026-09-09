@@ -130,6 +130,8 @@ Copy-Item config/bots.example.json config/bots.json
 
 在飞书群中 @任意成员发送 `/team`，会返回一张团队卡片，展示每位成员的职责、默认执行引擎、项目 Skill 与连接状态。
 
+启用 `agent-admin` 插件后，管理台可以为每个 Agent 配置供应商 Base URL、API Key 和模型。模型输入框旁的刷新按钮会调用供应商兼容的模型列表接口；“测试连通性”会按当前引擎协议发起一次最小真实推理请求并显示耗时。未重新填写 API Key 时使用服务端已保存的 Key，Key 不会返回浏览器。获取失败或供应商不提供模型目录时仍可手动填写模型 ID。
+
 ## 团队派发工作流
 
 `dispatch-task` 插件向所有执行引擎动态注册 `dispatch_task` MCP 工具，但运行时只允许 `teamLeader` 调用。工具参数包含目标成员 `targetBotId`、协作目标 `objective`、完整要求 `instruction` 和可选期望产出 `expectedOutput`。校验通过后，`ctx.collaboration` 会登记一次性交接单、回复通用协作卡片并发送真正 `@` 目标 bot 的富文本消息；移除 `cordis.yml` 中的 `dispatch-task` 条目即可整体下线该入口。

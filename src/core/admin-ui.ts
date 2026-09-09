@@ -2,13 +2,15 @@
  * 管理页面:单文件原生 HTML/JS,由 agent-admin-api 在 GET / 托管。
  * 零 CDN(服务器在中国,外网脚本不可靠)、零构建管线,tsc 直接编译字符串常量。
  * 页面行为:输入访问令牌 → 拉取 agent 列表 → 逐 agent 编辑引擎模型
- * (baseUrl / apiKey / model / wireApi)与工作目录 → 保存(PUT)→ 展示是否已重启常驻引擎。
+ * (baseUrl / apiKey / model / wireApi)与工作目录，可从供应商接口读取模型列表
+ * → 保存(PUT)→ 展示是否已重启常驻引擎。
  */
 export const ADMIN_UI_HTML = `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
 <title>ThreadPilot 管理台</title>
 <style>
   :root { color-scheme: light dark; }
@@ -56,6 +58,9 @@ export const ADMIN_UI_HTML = `<!doctype html>
   .field { display: flex; flex-direction: column; gap: 3px; }
   .field label { font-size: 12px; color: #6a737d; }
   .field input, .field select { min-width: 180px; }
+  .model-control { display: flex; gap: 6px; align-items: center; }
+  .model-control input { min-width: 220px; }
+  .icon-button { width: 36px; height: 36px; padding: 0; font-size: 18px; }
   .engine-box {
     margin-top: 12px; border: 1px dashed #d0d7de; border-radius: 8px; padding: 12px;
   }
@@ -208,7 +213,42 @@ export const ADMIN_UI_HTML = `<!doctype html>
     var model = document.createElement("input");
     model.placeholder = "Model,如 gpt-5.5";
     model.value = cfg.model || "";
-    field("Model", model);
+    var modelList = document.createElement("datalist");
+    var modelListId = "models-" + botId + "-" + engineId;
+    modelList.id = modelListId;
+    model.setAttribute("list", modelListId);
+    var modelControl = document.createElement("div");
+    modelControl.className = "model-control";
+    modelControl.appendChild(model);
+    modelControl.appendChild(modelList);
+    var loadModels = document.createElement("button");
+    loadModels.type = "button";
+    loadModels.className = "icon-button";
+    loadModels.textContent = "↻";
+    loadModels.title = "从供应商获取模型列表";
+    loadModels.setAttribute("aria-label", "从供应商获取模型列表");
+    loadModels.addEventListener("click", function () {
+      loadModels.disabled = true;
+      api(
+        "POST",
+        "/api/agents/" + encodeURIComponent(botId) + "/engines/" + encodeURIComponent(engineId) + "/models",
+        { baseUrl: baseUrl.value, apiKey: apiKey.value },
+      )
+        .then(function (data) {
+          modelList.innerHTML = "";
+          (data.models || []).forEach(function (id) {
+            var option = document.createElement("option");
+            option.value = id;
+            modelList.appendChild(option);
+          });
+          toast("已获取 " + (data.models || []).length + " 个模型");
+          model.focus();
+        })
+        .catch(function (err) { toast(err.message, true); })
+        .finally(function () { loadModels.disabled = false; });
+    });
+    modelControl.appendChild(loadModels);
+    field("Model", modelControl);
 
     if (engineId === "codex") {
       var wireApi = document.createElement("select");
@@ -247,6 +287,29 @@ export const ADMIN_UI_HTML = `<!doctype html>
         .finally(function () { save.disabled = false; });
     });
     actions.appendChild(save);
+
+    var testConnection = document.createElement("button");
+    testConnection.type = "button";
+    testConnection.textContent = "测试连通性";
+    testConnection.addEventListener("click", function () {
+      testConnection.disabled = true;
+      api(
+        "POST",
+        "/api/agents/" + encodeURIComponent(botId) + "/engines/" + encodeURIComponent(engineId) + "/test",
+        {
+          baseUrl: baseUrl.value,
+          apiKey: apiKey.value,
+          model: model.value,
+          wireApi: engineId === "codex" ? wireApi.value : undefined,
+        },
+      )
+        .then(function (data) {
+          toast("模型连通成功，耗时 " + data.latencyMs + " ms");
+        })
+        .catch(function (err) { toast(err.message, true); })
+        .finally(function () { testConnection.disabled = false; });
+    });
+    actions.appendChild(testConnection);
 
     if (cfg.baseUrl || cfg.model || hasKey) {
       var remove = document.createElement("button");

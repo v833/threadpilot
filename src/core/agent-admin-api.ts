@@ -48,9 +48,34 @@ export type AgentAdminRestartResult =
   | { ok: true; view: AdminAgentView; note: string }
   | { ok: false; status: number; error: string };
 
+export type AgentAdminModelsResult =
+  | { ok: true; models: string[] }
+  | { ok: false; status: number; error: string };
+
+export type AgentAdminConnectivityResult =
+  | { ok: true; latencyMs: number }
+  | { ok: false; status: number; error: string };
+
 export interface AgentAdminApiHandlers {
   listAgents(): Promise<AdminAgentView[]>;
   getAgent(botId: string): Promise<AdminAgentView | undefined>;
+  /** 使用请求中的临时配置或已保存配置读取供应商模型列表。 */
+  listModels(
+    botId: string,
+    engineId: string,
+    body: { baseUrl?: unknown; apiKey?: unknown },
+  ): Promise<AgentAdminModelsResult>;
+  /** 使用请求中的临时配置或已保存配置执行最小真实模型请求。 */
+  testConnectivity(
+    botId: string,
+    engineId: string,
+    body: {
+      baseUrl?: unknown;
+      apiKey?: unknown;
+      model?: unknown;
+      wireApi?: unknown;
+    },
+  ): Promise<AgentAdminConnectivityResult>;
   /** PUT /api/agents/:botId,body 为 { engines?, workspace? }。 */
   updateAgent(
     botId: string,
@@ -92,6 +117,50 @@ export function startAgentAdminApi(options: AgentAdminApiOptions): () => void {
       }
       if (method === "GET" && matches(segments, ["api", "agents"])) {
         return sendJson(res, 200, { agents: await handlers.listAgents() });
+      }
+      if (
+        method === "POST" &&
+        segments[0] === "api" &&
+        segments[1] === "agents" &&
+        segments[2] &&
+        segments[3] === "engines" &&
+        segments[4] &&
+        segments[5] === "models" &&
+        segments.length === 6
+      ) {
+        const body = (await readJson(req)) as {
+          baseUrl?: unknown;
+          apiKey?: unknown;
+        };
+        const result = await handlers.listModels(
+          segments[2],
+          segments[4],
+          body ?? {},
+        );
+        return sendJson(res, result.ok ? 200 : result.status, result);
+      }
+      if (
+        method === "POST" &&
+        segments[0] === "api" &&
+        segments[1] === "agents" &&
+        segments[2] &&
+        segments[3] === "engines" &&
+        segments[4] &&
+        segments[5] === "test" &&
+        segments.length === 6
+      ) {
+        const body = (await readJson(req)) as {
+          baseUrl?: unknown;
+          apiKey?: unknown;
+          model?: unknown;
+          wireApi?: unknown;
+        };
+        const result = await handlers.testConnectivity(
+          segments[2],
+          segments[4],
+          body ?? {},
+        );
+        return sendJson(res, result.ok ? 200 : result.status, result);
       }
       if (
         method === "GET" &&

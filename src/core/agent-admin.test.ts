@@ -4,7 +4,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { AgentAdminStore, codexKeyEnv } from "./agent-admin.js";
+import {
+  AgentAdminStore,
+  codexKeyEnv,
+  fetchProviderModels,
+  testProviderConnectivity,
+} from "./agent-admin.js";
 
 async function makeStore() {
   const directory = await mkdtemp(join(tmpdir(), "threadpilot-admin-"));
@@ -198,4 +203,136 @@ test("workspace 覆盖可读取", async (t) => {
   await store.apply([{ botId: "dev", workspace: "/root/work/dev" }]);
   assert.equal(store.workspaceOverride("dev"), "/root/work/dev");
   assert.equal(store.workspaceOverride("qa"), undefined);
+});
+
+test("fetchProviderModels 读取 OpenAI 兼容模型并去重排序", async () => {
+  let requestedUrl = "";
+  let requestedHeaders: Headers | undefined;
+  const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    requestedUrl = String(input);
+    requestedHeaders = new Headers(init?.headers);
+    return new Response(JSON.stringify({
+      data: [{ id: "gpt-z" }, { id: "gpt-a" }, { id: "gpt-z" }],
+    }));
+  }) as typeof fetch;
+
+  const models = await fetchProviderModels({
+    engineId: "codex",
+    baseUrl: "https://api.example.com/v1/",
+    apiKey: "sk-secret",
+  }, fetchImpl);
+
+  assert.equal(requestedUrl, "https://api.example.com/v1/models");
+  assert.equal(requestedHeaders?.get("authorization"), "Bearer sk-secret");
+  assert.deepEqual(models, ["gpt-a", "gpt-z"]);
+});
+
+test("fetchProviderModels 为 Claude 设置兼容请求头并回退 models 路径", async () => {
+  const requests: Array<{ url: string; headers: Headers }> = [];
+  const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    requests.push({ url: String(input), headers: new Headers(init?.headers) });
+    if (requests.length === 1) return new Response("missing", { status: 404 });
+    return new Response(JSON.stringify({ models: [{ modelId: "claude-x" }] }));
+  }) as typeof fetch;
+
+  const models = await fetchProviderModels({
+    engineId: "claude",
+    baseUrl: "https://provider.example/api",
+    apiKey: "ak-secret",
+  }, fetchImpl);
+
+  assert.deepEqual(requests.map((request) => request.url), [
+    "https://provider.example/api/v1/models",
+    "https://provider.example/api/models",
+  ]);
+  assert.equal(requests[0].headers.get("x-api-key"), "ak-secret");
+  assert.equal(requests[0].headers.get("anthropic-version"), "2023-06-01");
+  assert.deepEqual(models, ["claude-x"]);
+});
+
+test("fetchProviderModels 拒绝非 HTTP(S) 供应商地址", async () => {
+  await assert.rejects(
+    fetchProviderModels({ engineId: "codex", baseUrl: "file:///etc/passwd" }),
+    /仅支持 HTTP\(S\)/,
+  );
+});
+
+test("testProviderConnectivity 按 responses 协议发起最小请求", async () => {
+  let requestedUrl = "";
+  let requestedBody: Record<string, unknown> = {};
+  const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    requestedUrl = String(input);
+    requestedBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ id: "resp-1" }));
+  }) as typeof fetch;
+
+  const result = await testProviderConnectivity({
+    engineId: "codex",
+    baseUrl: "https://api.example.com/v1",
+    apiKey: "sk-secret",
+    model: "gpt-x",
+    wireApi: "responses",
+  }, fetchImpl);
+
+  assert.equal(requestedUrl, "https://api.example.com/v1/responses");
+  assert.deepEqual(requestedBody, {
+    model: "gpt-x",
+    max_output_tokens: 1,
+    input: "Reply OK",
+  });
+  assert.ok(result.latencyMs >= 0);
+});
+
+test("testProviderConnectivity 支持 chat 与 Claude messages 协议", async () => {
+  const requests: Array<{
+    url: string;
+    headers: Headers;
+    body: Record<string, unknown>;
+  }> = [];
+  const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    requests.push({
+      url: String(input),
+      headers: new Headers(init?.headers),
+      body: JSON.parse(String(init?.body)),
+    });
+    return new Response(JSON.stringify({ ok: true }));
+  }) as typeof fetch;
+
+  await testProviderConnectivity({
+    engineId: "codex",
+    baseUrl: "https://openai.example",
+    model: "gpt-chat",
+    wireApi: "chat",
+  }, fetchImpl);
+  await testProviderConnectivity({
+    engineId: "claude",
+    baseUrl: "https://anthropic.example",
+    apiKey: "ak-secret",
+    model: "claude-x",
+  }, fetchImpl);
+
+  assert.equal(requests[0].url, "https://openai.example/v1/chat/completions");
+  assert.deepEqual(requests[0].body, {
+    model: "gpt-chat",
+    max_tokens: 1,
+    messages: [{ role: "user", content: "Reply OK" }],
+  });
+  assert.equal(requests[1].url, "https://anthropic.example/v1/messages");
+  assert.equal(requests[1].headers.get("x-api-key"), "ak-secret");
+  assert.equal(requests[1].headers.get("anthropic-version"), "2023-06-01");
+});
+
+test("testProviderConnectivity 返回供应商模型错误但不泄露响应正文", async () => {
+  const fetchImpl = (async () => new Response(JSON.stringify({
+    error: { message: "model not found", internal: "private detail" },
+  }), { status: 404 })) as typeof fetch;
+
+  await assert.rejects(
+    testProviderConnectivity({
+      engineId: "codex",
+      baseUrl: "https://api.example.com/v1",
+      model: "missing",
+    }, fetchImpl),
+    /^Error: 模型请求失败: HTTP 404 - model not found$/,
+  );
 });

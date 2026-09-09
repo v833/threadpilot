@@ -89,7 +89,8 @@ export class CliService extends Service {
     options: RunCliOptions,
   ): Record<string, string> | undefined {
     if (!options.botId) return options.env;
-    const modelEnv = this.ctx.agentAdmin?.modelEnvironment(
+    const admin = this.ctx.get("agentAdmin");
+    const modelEnv = admin?.modelEnvironment(
       options.botId,
       options.adapter.id,
     );

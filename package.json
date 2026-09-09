@@ -1,6 +1,6 @@
 {
   "name": "threadpilot",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "在飞书话题里，指挥你的 AI 编程团队。",
   "type": "module",
   "bin": {

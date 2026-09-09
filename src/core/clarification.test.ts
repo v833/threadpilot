@@ -109,6 +109,14 @@ test("findClarificationRequest 提取最近一次合法澄清请求", () => {
   ];
   assert.equal(findClarificationRequest(calls)?.title, "确认范围");
 
+  const expanded = [
+    {
+      toolName: "mcp__threadpilot_clarification__request_clarification",
+      input: valid,
+    },
+  ];
+  assert.equal(findClarificationRequest(expanded)?.title, "确认范围");
+
   // 跳过其他工具与未通过校验的调用，只认最近一次合法请求。
   const broken = { title: "", questions: [] };
   const mixed = [

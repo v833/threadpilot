@@ -239,7 +239,18 @@ export function findClarificationRequest(
 ): ClarificationRequest | undefined {
   for (let index = (toolCalls?.length ?? 0) - 1; index >= 0; index -= 1) {
     const call = toolCalls?.[index];
-    if (call?.toolName !== CLARIFICATION_TOOL_NAME) continue;
+    // Claude ACP 会把 MCP 工具展开为 mcp__<server>__<tool>，而 headless
+    // 适配器可能保留原名；两种形式都必须被澄清插件认领，否则模型会说“等待选择”
+    // 却不会生成真正的飞书选项卡片。
+    const toolName = call?.toolName ?? "";
+    if (!call) continue;
+    if (
+      toolName !== CLARIFICATION_TOOL_NAME &&
+      !toolName.endsWith(`__${CLARIFICATION_TOOL_NAME}`) &&
+      !toolName.endsWith(`/${CLARIFICATION_TOOL_NAME}`)
+    ) {
+      continue;
+    }
     const parsed = ClarificationRequestSchema.safeParse(call.input);
     if (parsed.success) return parsed.data;
   }

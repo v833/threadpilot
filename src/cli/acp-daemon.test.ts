@@ -147,8 +147,13 @@ lines.on("line", (line) => {
     return;
   }
   if (process.env.THREADPILOT_TEST_MCP === "1") {
-    send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", toolCallId: "mcp-call", title: process.env.THREADPILOT_TEST_MCP_TITLE === "1" ? "threadpilot_clarification__request_clarification" : "澄清", ...(process.env.THREADPILOT_TEST_MCP_TITLE === "1" ? {} : { name: "request_clarification" }), status: "in_progress", rawInput: { questions: [] } } } });
-    send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: "mcp-call", status: "completed" } } });
+    if (process.env.THREADPILOT_TEST_STREAMED_INPUT === "1") {
+      send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", toolCallId: "mcp-call", title: "澄清", name: "request_clarification", status: "in_progress" } } });
+      send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: "mcp-call", status: "completed", rawInput: { questions: [{ id: "q1", prompt: "p1" }] } } } });
+    } else {
+      send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", toolCallId: "mcp-call", title: process.env.THREADPILOT_TEST_MCP_TITLE === "1" ? "threadpilot_clarification__request_clarification" : "澄清", ...(process.env.THREADPILOT_TEST_MCP_TITLE === "1" ? {} : { name: "request_clarification" }), status: "in_progress", rawInput: { questions: [] } } } });
+      send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: "mcp-call", status: "completed" } } });
+    }
   }
   send({
     method: "session/update",
@@ -295,6 +300,34 @@ test("AcpDaemon 向 session/new 注入 MCP，并汇总应用工具调用", async
         toolUseId: "mcp-call",
         toolName: "request_clarification",
         input: { questions: [] },
+      },
+    ]);
+  } finally {
+    await daemon.close();
+  }
+});
+
+test("AcpDaemon 在 tool_call 之后通过 tool_call_update 接收 rawInput 时能正确更新应用工具参数", async () => {
+  const adapter = new AcpScriptAdapter(() => [
+    {
+      id: "threadpilot_clarification",
+      command: process.execPath,
+      args: ["server.js"],
+      tools: ["request_clarification"],
+    },
+  ]);
+  const daemon = new AcpDaemon(adapter, undefined, {
+    THREADPILOT_TEST_MCP: "1",
+    THREADPILOT_TEST_STREAMED_INPUT: "1",
+  });
+  try {
+    const result = await daemon.runTurn({ prompt: "调用澄清", cwd: process.cwd() });
+    assert.equal(result.answer, "mcp-1");
+    assert.deepEqual(result.toolCalls, [
+      {
+        toolUseId: "mcp-call",
+        toolName: "request_clarification",
+        input: { questions: [{ id: "q1", prompt: "p1" }] },
       },
     ]);
   } finally {

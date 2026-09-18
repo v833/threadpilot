@@ -678,23 +678,32 @@ export class AcpDaemon {
         ...(update.title ? { detail: update.title } : {}),
       });
     }
-    if (
-      applicationToolName &&
-      !turn.applicationTools.has(update.toolCallId) &&
-      ("rawInput" in update || update.sessionUpdate === "tool_call")
-    ) {
-      turn.applicationTools.add(update.toolCallId);
-      turn.emit({
-        type: "tool_call",
-        toolUseId: update.toolCallId,
-        toolName: applicationToolName,
-        input: update.rawInput ?? {},
-      });
-      turn.toolCalls.set(update.toolCallId, {
-        toolUseId: update.toolCallId,
-        toolName: applicationToolName,
-        input: update.rawInput ?? {},
-      });
+    if (applicationToolName) {
+      if (!turn.applicationTools.has(update.toolCallId)) {
+        turn.applicationTools.add(update.toolCallId);
+        turn.emit({
+          type: "tool_call",
+          toolUseId: update.toolCallId,
+          toolName: applicationToolName,
+          input: update.rawInput ?? {},
+        });
+        turn.toolCalls.set(update.toolCallId, {
+          toolUseId: update.toolCallId,
+          toolName: applicationToolName,
+          input: update.rawInput ?? {},
+        });
+      } else if ("rawInput" in update && update.rawInput !== undefined) {
+        const existing = turn.toolCalls.get(update.toolCallId);
+        if (existing) {
+          existing.input = update.rawInput;
+        } else {
+          turn.toolCalls.set(update.toolCallId, {
+            toolUseId: update.toolCallId,
+            toolName: applicationToolName,
+            input: update.rawInput,
+          });
+        }
+      }
     }
     if (
       !turn.completedTools.has(update.toolCallId) &&
